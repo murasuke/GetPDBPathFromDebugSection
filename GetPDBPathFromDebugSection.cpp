@@ -2,36 +2,45 @@
 #include <dbghelp.h>
 #include <iostream>
 
-struct PdbInfo
+struct RSDS_DEBUG_FORMAT
 {
-	DWORD     Signature;
-	BYTE      Guid[16];
-	DWORD     Age;
-	char      PdbFileName[1];
+	DWORD     signature;
+	BYTE      guid[16];
+	DWORD     age;
+	char      pdbpath[1];
 };
 
+/**
+ * プログラム内に含まれる「.pdb」ファイルのパスを抽出して表示する。
+ * 引数:exeまたはdllのパス
+ */
 int wmain(int argc, wchar_t* argv[])
 {
 	if (argc < 2) {
 		return 1;
 	}
 
+	// プログラムをメモリ上にマップする
 	auto hFile = CreateFile(argv[1], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+	if (hFile == INVALID_HANDLE_VALUE)
+	{
+		return 1;
+	}
 	auto hFileMapping = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
 	auto pvBase = MapViewOfFile(hFileMapping, FILE_MAP_READ, 0, 0, 0);
-	auto pDosHeader = (IMAGE_DOS_HEADER*)pvBase;
 
-	PIMAGE_SECTION_HEADER img;
-	ULONG size;
-	auto dbg_dir = (IMAGE_DEBUG_DIRECTORY*)ImageDirectoryEntryToDataEx(pvBase, FALSE, IMAGE_DIRECTORY_ENTRY_DEBUG, &size, &img);
+	// ディレクトリエントリ(Debug)を取得
+	PIMAGE_SECTION_HEADER imgSecHeader;
+	ULONG dirEntrySize;
+	auto dbgDir = (IMAGE_DEBUG_DIRECTORY*)ImageDirectoryEntryToDataEx(pvBase, FALSE, IMAGE_DIRECTORY_ENTRY_DEBUG, &dirEntrySize, &imgSecHeader);
 
-	// Check to see that the data has the right type
-	if (IMAGE_DEBUG_TYPE_CODEVIEW == dbg_dir->Type)
+	if (IMAGE_DEBUG_TYPE_CODEVIEW == dbgDir->Type)
 	{
-		auto pdb_info = (PdbInfo*)((LPBYTE)(pvBase)+dbg_dir->PointerToRawData);
-		if (0 == memcmp(&pdb_info->Signature, "RSDS", 4))
+		auto pdb_info = (RSDS_DEBUG_FORMAT*)((LPBYTE)pvBase + dbgDir->PointerToRawData);
+		if (memcmp(&pdb_info->signature, "RSDS", 4) == 0)
 		{
-			std::cout << pdb_info->PdbFileName;
+			//RSDSシグネチャが見つかれば、pdfが含まれるので出力する
+			std::cout << pdb_info->pdbpath;
 		}
 	}
 
