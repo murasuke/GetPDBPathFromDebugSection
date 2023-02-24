@@ -62,7 +62,7 @@ int wmain(int argc, wchar_t* argv[])
 		auto pdb_info = (RSDS_DEBUG_FORMAT*)((LPBYTE)pvBase + dbgDir->PointerToRawData);
 		if (memcmp(&pdb_info->signature, "RSDS", 4) == 0)
 		{
-			//RSDSシグネチャが見つかれば、pdfが含まれるので出力する
+			//RSDSシグネチャが見つかれば、pdfのパスが含まれるので出力する
 			std::cout << pdb_info->pdbpath;
 		}
 	}
